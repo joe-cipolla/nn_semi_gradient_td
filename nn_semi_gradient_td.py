@@ -318,6 +318,176 @@ class TDAgent(BaseAgent):
         raise NotImplementedError
 
 
+def agent_message(self, message):
+    if message == 'get state value':
+        ### return state_value (1~2 lines)
+        # Use self.all_state_features and self.weights to return the vector of all state values
+        # Hint: Use np.dot()
+        #
+        # state_value = ?
+
+        ### START CODE HERE ###
+        state_value = np.dot(self.weights, np.transpose(self.all_state_features))
+        ### END CODE HERE ###
+
+        return state_value
+
+
+# ---------------------------------------------------------------------------------------------------------------------#
+# run experiment
+# 1. plot learned state value function and compare it against the true state values
+# 2. plot learning curve depicting the error in the learned value estimates over episodes
+#
+# prediction objective is root mean squared value error (rmsve)
+# rmsve = sum[ mu_s * (v_pi_s - v_hat(s, w)]^2
+
+# Here we provide you with the true state value and state distribution
+true_state_val = np.load('data/true_V.npy')
+state_distribution = np.load('data/state_distribution.npy')
+
+def calc_RMSVE(learned_state_val):
+    assert(len(true_state_val) == len(learned_state_val) == len(state_distribution))
+    MSVE = np.sum(np.multiply(state_distribution, np.square(true_state_val - learned_state_val)))
+    RMSVE = np.sqrt(MSVE)
+    return RMSVE
+
+# Define function to run experiment
+def run_experiment(environment, agent, environment_parameters, agent_parameters, experiment_parameters):
+    rl_glue = RLGlue(environment, agent)
+
+    # Sweep Agent parameters
+    for num_agg_states in agent_parameters["num_groups"]:
+        for step_size in agent_parameters["step_size"]:
+
+            # save rmsve at the end of each evaluation episode
+            # size: num_episode / episode_eval_frequency + 1 (includes evaluation at the beginning of training)
+            agent_rmsve = np.zeros(
+                int(experiment_parameters["num_episodes"] / experiment_parameters["episode_eval_frequency"]) + 1)
+
+            # save learned state value at the end of each run
+            agent_state_val = np.zeros(environment_parameters["num_states"])
+
+            env_info = {"num_states": environment_parameters["num_states"],
+                        "start_state": environment_parameters["start_state"],
+                        "left_terminal_state": environment_parameters["left_terminal_state"],
+                        "right_terminal_state": environment_parameters["right_terminal_state"]}
+
+            agent_info = {"num_states": environment_parameters["num_states"],
+                          "num_groups": num_agg_states,
+                          "step_size": step_size,
+                          "discount_factor": environment_parameters["discount_factor"]}
+
+            print('Setting - num. agg. states: {}, step_size: {}'.format(num_agg_states, step_size))
+            os.system('sleep 0.2')
+
+            # one agent setting
+            for run in tqdm(range(1, experiment_parameters["num_runs"] + 1)):
+                env_info["seed"] = run
+                agent_info["seed"] = run
+                rl_glue.rl_init(agent_info, env_info)
+
+                # Compute initial RMSVE before training
+                current_V = rl_glue.rl_agent_message("get state value")
+                agent_rmsve[0] += calc_RMSVE(current_V)
+
+                for episode in range(1, experiment_parameters["num_episodes"] + 1):
+                    # run episode
+                    rl_glue.rl_episode(0)  # no step limit
+
+                    if episode % experiment_parameters["episode_eval_frequency"] == 0:
+                        current_V = rl_glue.rl_agent_message("get state value")
+                        agent_rmsve[int(episode / experiment_parameters["episode_eval_frequency"])] += calc_RMSVE(
+                            current_V)
+
+                # store only one run of state value
+                if run == 50:
+                    agent_state_val = rl_glue.rl_agent_message("get state value")
+
+            # rmsve averaged over runs
+            agent_rmsve /= experiment_parameters["num_runs"]
+
+            save_name = "{}_agg_states_{}_step_size_{}".format('TD_agent', num_agg_states, step_size).replace('.', '')
+
+            if not os.path.exists('results'):
+                os.makedirs('results')
+
+            # save avg. state value
+            np.save("results/V_{}".format(save_name), agent_state_val)
+
+            # save avg. rmsve
+            np.save("results/RMSVE_{}".format(save_name), agent_rmsve)
+
+
+# Run Experiment
+
+# Experiment parameters
+experiment_parameters = {
+    "num_runs" : 50,
+    "num_episodes" : 2000,
+    "episode_eval_frequency" : 10 # evaluate every 10 episodes
+}
+
+# Environment parameters
+environment_parameters = {
+    "num_states" : 500,
+    "start_state" : 250,
+    "left_terminal_state" : 0,
+    "right_terminal_state" : 501,
+    "discount_factor" : 1.0
+}
+
+# Agent parameters
+# Each element is an array because we will be later sweeping over multiple values
+agent_parameters = {
+    "num_groups": [10],
+    "step_size": [0.01, 0.05, 0.1]
+}
+
+current_env = RandomWalkEnvironment
+current_agent = TDAgent
+
+run_experiment(current_env, current_agent, environment_parameters, agent_parameters, experiment_parameters)
+plot_script.plot_result(agent_parameters, 'results')
+
+
+# Run experiment with different state aggregation resolution and step-size
+#
+# we will test several values of num_groups and step_size. Parameter sweeps although necessary, can take lots of time.
+# So now that you have verified your experiment result, here we show you the results of the parameter sweeps that you
+# would see when running the sweeps yourself.
+#
+# We tested several different values of num_groups: {10, 100, 500}, and step-size: {0.01, 0.05, 0.1}.
+# As before, we performed 2000 episodes per run, and averaged the results over 50 runs for each setting.
+
+# Experiment parameters
+experiment_parameters = {
+    "num_runs" : 50,
+    "num_episodes" : 2000,
+    "episode_eval_frequency" : 10 # evaluate every 10 episodes
+}
+
+# Environment parameters
+environment_parameters = {
+    "num_states" : 500,
+    "start_state" : 250,
+    "left_terminal_state" : 0,
+    "right_terminal_state" : 501,
+    "discount_factor" : 1.0
+}
+
+# Agent parameters
+# Each element is an array because we will be sweeping over multiple values
+agent_parameters = {
+    "num_groups": [10, 100, 500],
+    "step_size": [0.01, 0.05, 0.1]
+}
+
+if all_correct:
+    plot_script.plot_result(agent_parameters, 'correct_npy')
+else:
+    raise ValueError("Make sure your experiment result is correct! Otherwise the sweep results will not be displayed.")
+
+
 # ---------------------------------------------------------------------------------------------------------------------#
 # unit tests
 
@@ -477,5 +647,21 @@ if np.allclose(test_agent.weights, np.array([-0.35, 0.5, 1., -0.5, 1.5, -0.5, 1.
     print("weight update is correct!\n")
 else:
     print("weight update is incorrect.\n")
+
+
+# Test Code for agent_get_state_val()
+agent_info = {"num_states": 20,
+              "num_groups": 5,
+              "step_size": 0.1,
+              "discount_factor": 1.0}
+
+test_agent = TDAgent()
+test_agent.agent_init(agent_info)
+test_state_val = test_agent.agent_message('get state value')
+
+print("State value shape: {}".format(test_state_val.shape))
+print("Initial State value for all states: {}".format(test_state_val))
+
+
 
 
