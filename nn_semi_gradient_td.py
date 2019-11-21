@@ -211,7 +211,44 @@ def get_gradient(s, weights):
     grads[0]['b'] = weights[1]["W"].T * (x > 0)
     grads[1]['W'] = x.T
     grads[1]['b'] = 1
-    
+
+
+# ---------------------------------------------------------------------------------------------------------------------#
+# Implement stochastic gradient descent method for state-value prediction
+#
+# At each time step, we update the weights in the direction g_t = D_t * Del * v_hat(S_t, w_t) using a fixed setp-size alpha.
+# D_t = R_t+1 + gamma * v_hat(S_t+1, w_t) - v_hat(S_t, w_t) is the TD-error.
+# Del * v_hat(S_t, w_t) is the gradient of the value function with respect to the weights.
+#
+# The weights are structured as an array of dictionaries. Note that the updates g_t, in the case of TD, is
+# D_t * Del * v_hat(S_t, w_t).
+# As a result, g_t has the same structure as Del * v_hat(S_t, w_t) which is also an array of dictionaries.
+
+class SGD(BaseOptimizer):
+    def __init__(self):
+        pass
+
+    def optimizer_init(self, optimizer_info):
+        """ Setup for the opterator.
+
+        Set parameters needed to setup the stochastid gradient descent metod.
+
+        Assume optimizer_info dict contains:
+        {
+            step_size: float
+        }
+        """
+        self.step_size = optimizer_info.get("step_szie")
+
+    def update_weights(self, weights, g):
+        """
+        Given weights and update g, return updated weights
+        """
+        for i in range(len(weights)):
+            for param in weights[i].keys():
+                weights[i][param] = 
+
+        return weights
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # Implement agent methods
