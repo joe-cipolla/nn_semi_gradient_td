@@ -246,7 +246,7 @@ class SGD(BaseOptimizer):
         """
         for i in range(len(weights)):
             for param in weights[i].keys():
-                weights[i][param] = 
+                weights[i][param] += self.step_size * g[i][param]
 
         return weights
 
