@@ -174,7 +174,7 @@ def my_matmul(x1, x2):
     """
     Given matrices x1 and x2, return the multiplication of them
     """
-    
+
     result = np.zeros((x1.shape[0], x2.shape[1]))
     x1_non_zero_indices = x1.nonzero()
     if x1.shape[0] == 1 and len(x1_non_zero_indices[1]) == 1:
@@ -183,7 +183,7 @@ def my_matmul(x1, x2):
         result[x1_non_zero_indices[0], :] = x2 * x1[x1_non_zero_indices[0], 0]
     else:
         result = np.matmul(x1, x2)
-   
+
     return result
 
 
@@ -194,10 +194,21 @@ def get_value(s, weights):
     ### Compute the ouput of the neural network, v, for input s
     psi = my_matmul(s, weights[0]["W"]) + weights[0]["b"]
     x = np.maximum(0, psi)
-    v = my_matmul(x, weights[1]["W"]) + weights[1]["b"]    
+    v = my_matmul(x, weights[1]["W"]) + weights[1]["b"]
 
     return v
 
+
+def get_gradient(s, weights):
+    """
+    Given inputs s and weights, return the gradient of v with respect to the weights
+    """
+
+    ### Compute the gradient of the value function with respect to W0, b0, W1, b1 for input s
+    grads[0]['W'] = s * my_matmul(weights[1]['W'], I_x>0) 
+    grads[0]['b'] =
+    grads[1]['W'] =
+    grads[1]['b'] =
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # Implement agent methods
@@ -661,7 +672,3 @@ test_state_val = test_agent.agent_message('get state value')
 
 print("State value shape: {}".format(test_state_val.shape))
 print("Initial State value for all states: {}".format(test_state_val))
-
-
-
-
