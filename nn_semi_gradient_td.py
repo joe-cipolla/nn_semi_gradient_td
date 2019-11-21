@@ -205,10 +205,12 @@ def get_gradient(s, weights):
     """
 
     ### Compute the gradient of the value function with respect to W0, b0, W1, b1 for input s
-    grads[0]['W'] = s * my_matmul(weights[1]['W'], I_x>0) 
-    grads[0]['b'] =
-    grads[1]['W'] =
-    grads[1]['b'] =
+    psi = my_matmul(s, weights[0]["W"]) + weights[0]["b"]
+    x = np.maximum(0, psi)
+    grads[0]['W'] = my_matmul(s.T, weights[1]["W"].T * (x > 0))
+    grads[0]['b'] = weights[1]["W"].T * (x > 0)
+    grads[1]['W'] = x.T
+    grads[1]['b'] = 1
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # Implement agent methods
