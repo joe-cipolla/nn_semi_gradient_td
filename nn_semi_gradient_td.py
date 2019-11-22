@@ -347,139 +347,129 @@ class Adam(BaseOptimizer):
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # Implement agent methods
-# The shape of self.all_state_features numpy array is (num_states, feature_size), with features of states from
-# State 1-500. Note that index 0 stores features for State 1 (Features for State 0 does not exist). Use self.all_
-# state_features to access each feature vector for a state.
+# In agent_init(), the following is initialized:
+# - specify the neural network structure by filling self.layer_size with the size of the input layer, hidden layer, and output layer.
+# - initialize the network's parameters. We show the parameters as an array of dictionaries, self.weights, where each
+#   dictionary corresponds to weights from one layer to the next. Each dictionary includes w and b. To intialize the paramters,
+#   we use a normal distribution with mean 0 and standard deviation sqrt( 2 / #_of_each_node ). This initialization heuristic
+#   is commonly used when using ReLU gates and helps keep the output of a neuron from getting too big or too small.
+#   to intialize the network's parameters, use self.rand_generator.normal() which draws random samples from a normla distribution.
+#   The parameters of self.rand_generator.normal are mean of the distribution, standard deviation of the distribution, and
+#   output shape in the form of tuple of integers.
 #
-# When saving state values in the agent, recall how the state values are represented with linear function approximation.
+# In agent_start() we specify self.last_state and self.last_action.
 #
-# State Value Representation: v_hat(s,w) = wx^T  where  w  is a weight vector and  x is the feature vector of the state.
-#
-# When performing TD(0) updates with Linear Function Approximation, recall how we perform semi-gradient TD(0) updates
-# using supervised learning.
-#
-# semi-gradient TD(0) Weight Update Rule:  w_t1 = w_t + alpha * (r_t1 + gamma * v_hat(s_t1, w) − v_hat(s_t, w))
-# * delta_v_hat(s_t, w)
+# In agent_step() and agent_end(), we:
+# - compute the TD error using v(S_t) and v(S_t+1). To compute the value function for S_t and S_t+1, we get their one-hot
+#   encoding using one_hot() method. We feed the one-hot encoded state number to the neural networks using get_value() method
+#   implemented above. Note that one_hot() method returns the one-hot encoding of a state as a numpy array of shape (1, num_states).
+# - retrieve the gradients using get_gradient() function.
+# - use Adam_algorithm to update the neural network parameters, self.weights.
+# - use agent_policy() method to select actions with agent_step().
 
-# Create TDAgent
+def one_hot(state, num_states):
+    """
+    Given num_state and a state, return the one-hot encoding of the state
+    """
+    # Create the one-hot encoding of state
+    # one_hot_vector is a numpy array of shape (1, num_states)
+
+    one_hot_vector = np.zeros((1, num_states))
+    one_hot_vector[0, int((state - 1))] = 1
+
+    return one_hot_vector
+
 class TDAgent(BaseAgent):
     def __init__(self):
-        self.num_states = None
-        self.num_groups = None
-        self.step_size = None
-        self.discount_factor = None
+        self.name = 'td_agent'
+        pass
 
     def agent_init(self, agent_info={}):
         """Setup for the agent called when the experiment first starts.
 
-        Set parameters needed to setup the semi-gradient TD(0) state aggregation agent.
+        Set parameters needed to setup the semi-gradient TD with a Neural Network.
 
-        Assume agent_info dict contains:
+        Assume agent_info dict contain:
         {
-            num_states: 500 [int],
-            num_groups: int,
+            num_states: integer,
+            num_hidden_layer: integer,
+            num_hidden_units: integer,
             step_size: float,
             discount_factor: float,
-            seed: int
+            self.beta_m: float,
+            self.beta_v: float,
+            self.epsilon: float,
+            seed: integer
         }
         """
 
-        # set random seed for each run
-        self.rand_generator = np.random.RandomState(agent_info.get("seed"))
+        # Set random seed for weights initialization for each run
+        self.rand_generator = np.random.RandomState(agent_info.get('seed'))
 
-        # set class attributes
+        # Set random seed for policy for each run
+        self.policy_rand_generator = np.random.RandomState(agent_info.get('seed'))
+
+        # Set attributes according to agent_info
         self.num_states = agent_info.get("num_states")
-        self.num_groups = agent_info.get("num_groups")
-        self.step_size = agent_info.get("step_size")
+        self.num_hidden_layer = agent_info.get("num_hidden_layer")
+        self.num_hidden_units = agent_info.get("num_hidden_units")
         self.discount_factor = agent_info.get("discount_factor")
 
-        # pre-compute all observable features
-        num_states_in_group = int(self.num_states / self.num_groups)
-        self.all_state_features = np.array(
-            [get_state_feature(num_states_in_group, self.num_groups, state) for state in range(1, self.num_states + 1)])
+        # Define the neural netork's structure
+        # Specify self.layer_size which shows the number of nodes in each layer
+        self.layer_size = np.array([self.num_states, self.num_hidden_layer, self.num_hidden_units])
 
-        # initialize all weights to zero using numpy array with correct size
+        # Intialize the neural network's parameters
+        self.weights = [dict() for i in range(self.num_hidden_layer+1)]
+        for i in range(self.num_hidden_layer+1):
+            # Intialize self.weights[i]['W'] and self.weights[i]['b'] using self.rand_generator.normal()
+            self.weights[i]['W'] = self.rand_generator.normal(0, np.sqrt(2/self.layer_size[i]), self.layer_size[i+1])
+            self.weights[i]['b'] = self.rand_generator.normal(0, np.sqrt(2/self.layer_size[i]), self.layer_size[i+1])
 
-        self.weights = np.zeros(self.num_groups)
+        # Specify the optimizer
+        self.optimizer = Adam()
+        optimizer_info = {"num_states": agent_info["num_states"],
+                          "num_hidden_layer": agent_info["num_hidden_layer"],
+                          "num_hidden_units": agent_info["num_hidden_units"],
+                          "step_size": agent_info["step_size"],
+                          "beta_m": agent_info["beta_m"],
+                          "beta_v": agent_info["beta_v"],
+                          "epsilon": agent_info["epsilon"]}
+        self.optimizer.optimizer_init(optimizer_info)
 
         self.last_state = None
         self.last_action = None
 
+    def agent_policy(self, state):
+        # set chosen_action as 0 or 1 with equal probability
+        chosen_action = self.policy_rand_generator.choice([0, 1])
+        return chosen_action
+
     def agent_start(self, state):
-        """The first method called when the experiment starts, called after
-        the environment starts.
+        """The first method called when the experiment starts, called after the environment starts.
         Args:
-            state (Numpy array): the state from the
-                environment's evn_start function.
+            state (Numpy array): the state from the environment's env_start function.
         Returns:
-            self.last_action [int] : The first action the agent takes.
+            The first action the agent takes.
         """
-
-        # select action given state (using agent_policy), and save current state and action
-
+        # select action given state (using self.agent_policy()), and save current state and action
         self.last_state = state
-        self.last_action = agent_policy(self.rand_generator, state)
+        self.last_action = self.agent_policy()
 
         return self.last_action
 
     def agent_step(self, reward, state):
         """A step taken by the agent.
         Args:
-            reward [float]: the reward received for taking the last action taken
-            state [int]: the state from the environment's step, where the agent ended up after the last step
+            reward (float): the reward received for taking the last action taken
+            state (Numpy array): the state from the environment's step based,
+            where the agent ended up after the last step
         Returns:
-            self.last_action [int] : The action the agent is taking.
+            The action the agent is taking
         """
 
-        # get relevant feature
-        current_state_feature = self.all_state_features[state - 1]
-        last_state_feature = self.all_state_features[self.last_state - 1]
-
-        v_hat_current = np.dot(self.weights, current_state_feature)
-        v_hat_last = np.dot(self.weights, last_state_feature)
-        self.weights = self.weights + self.step_size * (
-                    reward + (self.discount_factor * v_hat_current) - v_hat_last) * last_state_feature
-        self.last_state = state
-        self.last_action = agent_policy(self.rand_generator, state)
-
-        return self.last_action
-
-    def agent_end(self, reward):
-        """Run when the agent terminates.
-        Args:
-            reward (float): the reward the agent received for entering the
-                terminal state.
-        """
-
-        # get relevant feature
-        last_state_feature = self.all_state_features[self.last_state - 1]
-
-        # update weights
-        self.weights = self.weights + self.step_size * (
-                    reward - np.dot(self.weights, last_state_feature)) * last_state_feature
-        return
-
-    def agent_message(self, message):
-        # We will implement this method later
-        raise NotImplementedError
-
-
-def agent_message(self, message):
-    if message == 'get state value':
-        ### return state_value (1~2 lines)
-        # Use self.all_state_features and self.weights to return the vector of all state values
-        # Hint: Use np.dot()
-        #
-        # state_value = ?
-
-        ### START CODE HERE ###
-        state_value = np.dot(self.weights, np.transpose(self.all_state_features))
-        ### END CODE HERE ###
-
-        return state_value
-
-
-
+        # compute TD error
+        delta = None
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # unit tests
