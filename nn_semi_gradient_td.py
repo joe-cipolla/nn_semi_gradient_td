@@ -462,14 +462,105 @@ class TDAgent(BaseAgent):
         """A step taken by the agent.
         Args:
             reward (float): the reward received for taking the last action taken
-            state (Numpy array): the state from the environment's step based,
-            where the agent ended up after the last step
+            state (Numpy array): the state from the
+                environment's step based, where the agent ended up after the
+                last step
         Returns:
-            The action the agent is taking
+            The action the agent is taking.
         """
 
-        # compute TD error
-        delta = None
+        ### Compute TD error (5 lines)
+        # delta = None
+
+        ### START CODE HERE ###
+        s_t = one_hot(self.last_state, self.num_states)
+        s_t1 = one_hot(state, self.num_states)
+        v_hat_t = get_value(s_t, self.weights)
+        v_hat_t1 = get_value(s_t1, self.weights)
+        delta = reward + (self.discount_factor * v_hat_t1) - v_hat_t
+        ### END CODE HERE ###
+
+        ### Retrieve gradients (1 line)
+        # grads = None
+
+        ### START CODE HERE ###
+        grads = get_gradient(one_hot(self.last_state, self.num_states), self.weights)
+        ### END CODE HERE ###
+
+        ### Compute g (1 line)
+        g = [dict() for i in range(self.num_hidden_layer+1)]
+        for i in range(self.num_hidden_layer+1):
+            for param in self.weights[i].keys():
+
+                # g[i][param] = None
+                ### START CODE HERE ###
+                g[i][param] = delta * grads[i][param]
+                ### END CODE HERE ###
+
+        ### update the weights using self.optimizer (1 line)
+        # self.weights = None
+
+        ### START CODE HERE ###
+        self.weights = self.update_weights(self.weights, g)
+        ### END CODE HERE ###
+
+        ### update self.last_state and self.last_action (2 lines)
+
+        ### START CODE HERE ###
+        self.last_state = state
+        self.last_action = self.agent_policy()
+        ### END CODE HERE ###
+
+        return self.last_action
+
+    def agent_end(self, reward):
+        """Run when the agent terminates.
+        Args:
+            reward (float): the reward the agent received for entering the
+                terminal state.
+        """
+
+        ### compute TD error (3 lines)
+        # delta = None
+
+        ### START CODE HERE ###
+        s_t = one_hot(self.last_state, self.num_states)
+        v_hat_t = get_value(s_t, self.weights)
+        delta = reward - v_hat_t
+        ### END CODE HERE ###
+
+        ### Retrieve gradients (1 line)
+        # grads = None
+
+        ### START CODE HERE ###
+        grads = get_gradient(one_hot(self.last_state, self.num_states), self.weights)
+        ### END CODE HERE ###
+
+        ### Compute g (1 line)
+        g = [dict() for i in range(self.num_hidden_layer+1)]
+        for i in range(self.num_hidden_layer+1):
+            for param in self.weights[i].keys():
+
+                # g[i][param] = None
+                ### START CODE HERE ###
+                g[i][param] = delta * grads[i][param]
+                ### END CODE HERE ###
+
+        ### update the weights using self.optimizer (1 line)
+        # self.weights = None
+
+        ### START CODE HERE ###
+        self.weights = self.update_weights(self.weights, g)
+        ### END CODE HERE ###
+
+    def agent_message(self, message):
+        if message == 'get state value':
+            state_value = np.zeros(self.num_states)
+            for state in range(1, self.num_states + 1):
+                s = one_hot(state, self.num_states)
+                state_value[state - 1] = get_value(s, self.weights)
+            return state_value
+
 
 # ---------------------------------------------------------------------------------------------------------------------#
 # unit tests
@@ -559,5 +650,51 @@ assert(np.allclose(updated_weights[0]["W"], updated_weights_answer["W0"]))
 assert(np.allclose(updated_weights[0]["b"], updated_weights_answer["b0"]))
 assert(np.allclose(updated_weights[1]["W"], updated_weights_answer["W1"]))
 assert(np.allclose(updated_weights[1]["b"], updated_weights_answer["b1"]))
+
+print("Passed the asserts!")
+
+
+## Test Code for agent_init() ##
+
+agent_info = {"num_states": 5,
+              "num_hidden_layer": 1,
+              "num_hidden_units": 2,
+              "step_size": 0.25,
+              "discount_factor": 0.9,
+              "beta_m": 0.9,
+              "beta_v": 0.99,
+              "epsilon": 0.0001,
+              "seed": 0
+             }
+
+test_agent = TDAgent()
+test_agent.agent_init(agent_info)
+
+print("layer_size: {}".format(test_agent.layer_size))
+assert(np.allclose(test_agent.layer_size, np.array([agent_info["num_states"],
+                                                    agent_info["num_hidden_units"],
+                                                    1])))
+
+print("weights[0][\"W\"] shape: {}".format(test_agent.weights[0]["W"].shape))
+print("weights[0][\"b\"] shape: {}".format(test_agent.weights[0]["b"].shape))
+print("weights[1][\"W\"] shape: {}".format(test_agent.weights[1]["W"].shape))
+print("weights[1][\"b\"] shape: {}".format(test_agent.weights[1]["b"].shape), "\n")
+
+assert(test_agent.weights[0]["W"].shape == (agent_info["num_states"], agent_info["num_hidden_units"]))
+assert(test_agent.weights[0]["b"].shape == (1, agent_info["num_hidden_units"]))
+assert(test_agent.weights[1]["W"].shape == (agent_info["num_hidden_units"], 1))
+assert(test_agent.weights[1]["b"].shape == (1, 1))
+
+print("weights[0][\"W\"]\n", (test_agent.weights[0]["W"]), "\n")
+print("weights[0][\"b\"]\n", (test_agent.weights[0]["b"]), "\n")
+print("weights[1][\"W\"]\n", (test_agent.weights[1]["W"]), "\n")
+print("weights[1][\"b\"]\n", (test_agent.weights[1]["b"]), "\n")
+
+
+agent_weight_answer = np.load("asserts/agent_init_weights_1.npz")
+assert(np.allclose(test_agent.weights[0]["W"], agent_weight_answer["W0"]))
+assert(np.allclose(test_agent.weights[0]["b"], agent_weight_answer["b0"]))
+assert(np.allclose(test_agent.weights[1]["W"], agent_weight_answer["W1"]))
+assert(np.allclose(test_agent.weights[1]["b"], agent_weight_answer["b1"]))
 
 print("Passed the asserts!")
