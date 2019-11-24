@@ -454,7 +454,7 @@ class TDAgent(BaseAgent):
         """
         # select action given state (using self.agent_policy()), and save current state and action
         self.last_state = state
-        self.last_action = self.agent_policy()
+        self.last_action = self.agent_policy(state)
 
         return self.last_action
 
@@ -508,7 +508,7 @@ class TDAgent(BaseAgent):
 
         ### START CODE HERE ###
         self.last_state = state
-        self.last_action = self.agent_policy()
+        self.last_action = self.agent_policy(state)
         ### END CODE HERE ###
 
         return self.last_action
