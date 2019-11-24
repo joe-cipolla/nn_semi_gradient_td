@@ -698,3 +698,99 @@ assert(np.allclose(test_agent.weights[1]["W"], agent_weight_answer["W1"]))
 assert(np.allclose(test_agent.weights[1]["b"], agent_weight_answer["b1"]))
 
 print("Passed the asserts!")
+
+
+## Test Code for agent_start() ##
+
+agent_info = {"num_states": 500,
+              "num_hidden_layer": 1,
+              "num_hidden_units": 100,
+              "step_size": 0.1,
+              "discount_factor": 1.0,
+              "beta_m": 0.9,
+              "beta_v": 0.99,
+              "epsilon": 0.0001,
+              "seed": 10
+             }
+
+# Suppose state = 250
+state = 250
+
+test_agent = TDAgent()
+test_agent.agent_init(agent_info)
+test_agent.agent_start(state)
+
+print("Agent state: {}".format(test_agent.last_state))
+print("Agent selected action: {}".format(test_agent.last_action))
+
+assert(test_agent.last_state == 250)
+assert(test_agent.last_action == 1)
+
+print("Passed the asserts!")
+
+
+## Test Code for agent_step() ##
+
+agent_info = {"num_states": 5,
+              "num_hidden_layer": 1,
+              "num_hidden_units": 2,
+              "step_size": 0.1,
+              "discount_factor": 1.0,
+              "beta_m": 0.9,
+              "beta_v": 0.99,
+              "epsilon": 0.0001,
+              "seed": 0
+             }
+
+test_agent = TDAgent()
+test_agent.agent_init(agent_info)
+
+# load initial weights
+agent_initial_weight = np.load("asserts/agent_step_initial_weights.npz")
+test_agent.weights[0]["W"] = agent_initial_weight["W0"]
+test_agent.weights[0]["b"] = agent_initial_weight["b0"]
+test_agent.weights[1]["W"] = agent_initial_weight["W1"]
+test_agent.weights[1]["b"] = agent_initial_weight["b1"]
+
+# load m and v for the optimizer
+m_data = np.load("asserts/agent_step_initial_m.npz")
+test_agent.optimizer.m[0]["W"] = m_data["W0"]
+test_agent.optimizer.m[0]["b"] = m_data["b0"]
+test_agent.optimizer.m[1]["W"] = m_data["W1"]
+test_agent.optimizer.m[1]["b"] = m_data["b1"]
+
+v_data = np.load("asserts/agent_step_initial_v.npz")
+test_agent.optimizer.v[0]["W"] = v_data["W0"]
+test_agent.optimizer.v[0]["b"] = v_data["b0"]
+test_agent.optimizer.v[1]["W"] = v_data["W1"]
+test_agent.optimizer.v[1]["b"] = v_data["b1"]
+
+# Assume the agent started at State 3
+start_state = 3
+test_agent.agent_start(start_state)
+
+# Assume the reward was 10.0 and the next state observed was State 1
+reward = 10.0
+next_state = 1
+test_agent.agent_step(reward, next_state)
+
+# updated weights asserts
+print("updated_weights[0][\"W\"]\n", test_agent.weights[0]["W"], "\n")
+print("updated_weights[0][\"b\"]\n", test_agent.weights[0]["b"], "\n")
+print("updated_weights[1][\"W\"]\n", test_agent.weights[1]["W"], "\n")
+print("updated_weights[1][\"b\"]\n", test_agent.weights[1]["b"], "\n")
+
+agent_updated_weight_answer = np.load("asserts/agent_step_updated_weights.npz")
+assert(np.allclose(test_agent.weights[0]["W"], agent_updated_weight_answer["W0"]))
+assert(np.allclose(test_agent.weights[0]["b"], agent_updated_weight_answer["b0"]))
+assert(np.allclose(test_agent.weights[1]["W"], agent_updated_weight_answer["W1"]))
+assert(np.allclose(test_agent.weights[1]["b"], agent_updated_weight_answer["b1"]))
+
+# last_state and last_action assert
+print("Agent last state:", test_agent.last_state)
+print("Agent last action:", test_agent.last_action, "\n")
+
+assert(test_agent.last_state == 1)
+assert(test_agent.last_action == 1)
+
+print ("Passed the asserts!")
