@@ -501,7 +501,7 @@ class TDAgent(BaseAgent):
         # self.weights = None
 
         ### START CODE HERE ###
-        self.weights = update_weights(self.weights, g)
+        self.weights = self.optimizer.update_weights(self.weights, g)
         ### END CODE HERE ###
 
         ### update self.last_state and self.last_action (2 lines)
@@ -550,7 +550,7 @@ class TDAgent(BaseAgent):
         # self.weights = None
 
         ### START CODE HERE ###
-        self.weights = update_weights(self.weights, g)
+        self.weights = self.optimizer.update_weights(self.weights, g)
         ### END CODE HERE ###
 
     def agent_message(self, message):
